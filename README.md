@@ -34,6 +34,14 @@ Run the script directly:
 python inventory.py
 \`\`\`
 
+OR
+
+\`\`\`powershell
+git clone <repo-url>
+cd shoe-inventory-cli
+python inventory.py
+\`\`\`
+
 Then choose an option from the menu (0–6) to interact with the inventory.
 
 ## Requirements
