@@ -37,7 +37,7 @@ python inventory.py
 OR
 
 \`\`\`powershell
-git clone <repo-url>
+git clone [<repo-url>](https://github.com/eQuaEnoo/shoe-inventory-cli)
 cd shoe-inventory-cli
 python inventory.py
 \`\`\`
