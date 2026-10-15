@@ -1,21 +1,29 @@
-# ========The beginning of the class==========
+"""
+Shoe inventory management system.
+
+A menu-driven command-line program that loads shoe stock records from
+inventory.txt, models each shoe as a Shoe object, and lets the user view,
+add, search, and restock items. Changes are saved back to inventory.txt.
+
+Usage:
+    python inventory.py
+"""
+
+import csv
 from pathlib import Path
 
-# Path to the inventory file next to this script
+# The inventory file lives next to this script, so the program operates no
+# matter which directory it is launched from.
 INVENTORY_PATH = Path(__file__).resolve().parent / "inventory.txt"
+HEADER = ["Country", "Code", "Product", "Cost", "Quantity"]
+CURRENCY = "R"
 
 
+# ======================== Shoe class ========================
 class Shoe:
+    """A single shoe line item in the inventory."""
 
     def __init__(self, country, code, product, cost, quantity):
-        '''
-        In this function, you must initialise the following attributes:
-            ● country,
-            ● code,
-            ● product,
-            ● cost, and
-            ● quantity.
-        '''
         self.country = country
         self.code = code
         self.product = product
@@ -23,150 +31,123 @@ class Shoe:
         self.quantity = int(quantity)
 
     def get_cost(self):
-        '''
-        Add the code to return the cost of the shoe in this method.
-        '''
+        """Return the cost of one pair of shoes."""
         return self.cost
 
     def get_quantity(self):
-        '''
-        Add the code to return the quantity of the shoes.
-        '''
+        """Return the number of pairs in stock."""
         return self.quantity
 
     def __str__(self):
-        '''
-        Add a code to returns a string representation of a class.
-        '''
         return (f"Country:  {self.country}\n"
                 f"Code:     {self.code}\n"
                 f"Product:  {self.product}\n"
-                f"Cost:     R{self.cost:.2f}\n"
+                f"Cost:     {CURRENCY}{self.cost:.2f}\n"
                 f"Quantity: {self.quantity}")
 
 
-# ===========Shoes list===========
-'''
-The list will be used to store a list of objects of shoes.
-'''
+# In-memory list of Shoe objects, filled by read_shoes_data().
 shoes_list = []
 
 
-# Write shoes_list to inventory.txt
-def _write_to_file():
-    """
-    This function writes the current shoes_list to
-    the inventory.txt file, overwriting its contents. It also handles
-    exceptions that may occur during the file writing process.
-    """
-    try:
-        with INVENTORY_PATH.open("w") as file:
-            file.write("Country,Code,Product,Cost,Quantity\n")
-            for shoe in shoes_list:
-                file.write(f"{shoe.country}, {shoe.code}, {shoe.product}, "
-                           f"{shoe.cost}, {shoe.quantity}\n")
-
-    except Exception as e:
-        print(f"\nFailed to update inventory file: {e}\n")
-
-
-# ==========Functions outside the class==============
+# ==========File handling==============
 def read_shoes_data():
-    '''
-    This function loads data from the inventory.txt file and stores it
-    inside the shoes_list.
-
-    The function reads the file line by line (skipping the first line),
-    separates each line into its components, creates a Shoe object for
-    each line and appends it to the shoes_list.
-
-    The function also handles exceptions for file not found and other
-    errors that may arise during file reading.
-    '''
+    """Load inventory.txt into shoes_list."""
+    shoes_list.clear()  # avoids duplicates if this is ever called twice
     try:
-        with INVENTORY_PATH.open("r") as file:
-            next(file)  # This skips the first line of the file
-            for line in file:
-                line = line.strip()
-                if not line:
-                    continue  # This skips any empty lines in the file
-                parts = line.split(",")
-                country = parts[0].strip()
-                code = parts[1].strip()
-                product = parts[2].strip()
-                cost = parts[3].strip()
-                quantity = parts[4].strip()
-                shoe = Shoe(country, code, product, cost, quantity)
-                shoes_list.append(shoe)
-        print(f"\n {len(shoes_list)} shoes loaded from the inventory. \n")
+        with INVENTORY_PATH.open("r", newline="") as file:
+            reader = csv.reader(file, skipinitialspace=True)
+            next(reader, None)  # skip the header row
+            for line_number, row in enumerate(reader, start=2):
+                if not row:
+                    continue  # ignore blank lines
+                try:
+                    country, code, product, cost, quantity = row
+                    shoes_list.append(
+                        Shoe(country, code, product, cost, quantity)
+                    )
+                except ValueError:
+                    print(f"Skipping malformed line {line_number}: {row}")
+        print(f"\n{len(shoes_list)} shoes loaded from the inventory.\n")
     except FileNotFoundError:
-        print("The file inventory.txt not found."
-              "Please verify the file path.\n")
-    except Exception as e:
-        print(f"An error occurred while reading the file: {e}\n")
+        print(f"Could not find {INVENTORY_PATH}. Please check the path.\n")
+    except OSError as error:
+        print(f"Could not read the inventory file: {error}\n")
 
 
+def write_to_file():
+    """Overwrite inventory.txt with the current contents of shoes_list."""
+    try:
+        with INVENTORY_PATH.open("w", newline="") as file:
+            writer = csv.writer(file, lineterminator="\n")
+            writer.writerow(HEADER)
+            for shoe in shoes_list:
+                writer.writerow(
+                    [shoe.country, shoe.code, shoe.product,
+                     shoe.cost, shoe.quantity]
+                )
+    except OSError as error:
+        print(f"\nFailed to update inventory file: {error}\n")
+
+
+# ======================== Helpers ========================
+def find_shoe(code):
+    """Return the Shoe with this code (case-insensitive), or None."""
+    for shoe in shoes_list:
+        if shoe.code.upper() == code.upper():
+            return shoe
+    return None
+
+
+# ======================== Menu actions ========================
 def capture_shoes():
-    '''
-    This function prompts the user to input details for a new shoe,
-    creates a Shoe object with the details provided, and appends it to
-    the shoes_list.
-
-    There's also error handling to ensure that the cost and quantity
-    are valid numbers.
-    '''
-    print("\n ---- Add New Shoe ----")
+    """Prompt for a new shoe's details save the it."""
+    print("\n---- Add New Shoe ----")
     country = input("Country: ").strip()
     code = input("Code (e.g. SKU12345): ").strip()
     product = input("Product: ").strip()
 
+    if find_shoe(code):
+        print(f"\nA shoe with code '{code}' already exists. Not added.\n")
+        return
+
     try:
-        cost = float(input("Cost (R): ").strip())
+        cost = float(input(f"Cost ({CURRENCY}): ").strip())
         quantity = int(input("Quantity: ").strip())
     except ValueError:
         print("\nCost and quantity must be numbers. Shoe not added.\n")
         return
 
-    shoe = Shoe(country, code, product, cost, quantity)
-    shoes_list.append(shoe)
-    print(f"\n'{product}' added successfully.\n")
+    if cost < 0 or quantity < 0:
+        print("\nCost and quantity must be non-negative. Shoe not added.\n")
+        return
 
-    # Write the updated shoes_list to inventory.txt
-    _write_to_file()
+    shoes_list.append(Shoe(country, code, product, cost, quantity))
+    write_to_file()  # Write the updated shoes_list to inventory.txt
+    print(f"\n'{product}' added successfully.\n")
 
 
 def view_all():
-    '''
-    This function will iterate over the shoes list and
-    print the details of the shoes returned from the __str__
-    function. Optional: you can organise your data in a table format
-    by using Python’s tabulate module.
-    '''
+    """Print the details of every shoe in stock."""
     if not shoes_list:
         print("\nNo shoes in inventory.\n")
         return
 
-    print("\n ---- Shoe Inventory ----")
-    for i, shoe in enumerate(shoes_list, 1):  # Starts numbering from 1
-        print(f"\n[{i}]")
+    print("\n---- Shoe Inventory ----")
+    for number, shoe in enumerate(shoes_list, start=1):
+        print(f"\n[{number}]")
         print(shoe)
         print("-" * 40)
 
 
 def re_stock():
-    '''
-    This function restocks the shoe with the lowest quantity.
-    It finds the shoe with the lowest quantity, prompts the user to restock it,
-    and updates the quantity. The function also writes the updated
-    quantities back to inventory.txt with the 'write_to_file' function.
-    '''
+    """Offer to restock the shoe with the lowest quantity."""
     if not shoes_list:
         print("\nNo shoes in inventory to restock.\n")
         return
 
     # Find the shoe with the lowest quantity
-    lowest = min(shoes_list, key=lambda s: s.get_quantity())
-
+    lowest = min(shoes_list, key=lambda shoe: shoe.get_quantity())
     print("\n---- Restock Alert ----\n")
     print(f"Lowest stock: {lowest.product}, "
           f"{lowest.get_quantity()} units left")
@@ -179,124 +160,109 @@ def re_stock():
 
     try:
         add_quantity = int(input("How many units to add? ").strip())
-
     except ValueError:
-        print("Please enter a valid number.\n")
+        print("Please enter a whole number.\n")
+        return
+
+    if add_quantity <= 0:
+        print("Please enter a number greater than 0.\n")
         return
 
     lowest.quantity += add_quantity
+    write_to_file()  # Save the updated quantity to inventory.txt
     print(f"\n{lowest.product} restocked.\n"
           f"New quantity: {lowest.get_quantity()} units.\n")
 
-    # Write the updated quantities back to inventory.txt
-    _write_to_file()
-
 
 def search_shoe():
-    '''
-    This function finds and displays a shoe by its product code.
-
-    The user is prompted to enter a code, compares it against the codes
-    of every shoe in the shoes_list, and if a match is found, it prints
-    the details of that shoe, regardless of case.
-    If no match is found, it informs the user that the shoe was not
-    found.
-    '''
+    """Look up a shoe by its product code and displays it."""
     print("\n---- Search Shoe by Code ----")
-    code = input("Enter shoe code: ").strip().upper()
+    code = input("Enter shoe code: ").strip()
+    shoe = find_shoe(code)
 
-    for shoe in shoes_list:
-        if shoe.code.upper() == code:
-            print("\nShoe found:\n")
-            print(shoe)
-            print()
-            return
-
-    print(f"\nNo shoe found with code '{code}'.\n")
+    if shoe:
+        print("\nShoe found:\n")
+        print(shoe)
+        print()
+    else:
+        print(f"\nNo shoe found with code '{code}'.\n")
 
 
 def value_per_item():
-    '''
-    This function will print the total stock value for every shoe in
-    the inventory.
-
-    The total stock value is calculated by multiplying the cost of the
-    shoe by the quantity available.
-
-    The results will be displayed in a tabular format, showing the
-    product name, cost, quantity and total value for each shoe.
-    '''
+    """Print the total stock value (cost * quantity) of each shoe."""
     if not shoes_list:
         print("\nNo shoes available.\n")
         return
 
     print("\n---- Value per Item ----")
-    print(f"{'Product':<25} {'Cost':>8} {'Quantity':>6} {'Total Value':>12}")
-    print("-" * 55)
+    print(f"{'Product':<25} {'Cost':>10} {'Quantity':>9} {'Total Value':>14}")
+    print("-" * 61)
 
     for shoe in shoes_list:
-        value = shoe.get_cost() * shoe.get_quantity()
-        print(f"{shoe.product:<25} R{shoe.get_cost():>7.2f} "
-              f"{shoe.get_quantity():>6} R{value:11.2f}")
-        print()
+        # Attach the currency symbol to the values before aligning so
+        # the "R" symbol stays attached to the digits instead of floating
+        # in the padding.
+        cost = f"{CURRENCY}{shoe.get_cost():.2f}"
+        value = f"{CURRENCY}{shoe.get_cost() * shoe.get_quantity():.2f}"
+
+        print(f"{shoe.product:<25} "
+              f"{cost:>10} "
+              f"{shoe.get_quantity():>9} "
+              f"{value:>14}")
+    print()
 
 
 def highest_qty():
-    '''
-    This identifies and displays the shoe with the highest quantity
-    in stock.
-    '''
+    """Show the best-stocked shoe, flagged as the item on sale."""
     if not shoes_list:
         print("\nNo shoes loaded.\n")
         return
 
-    highest = max(shoes_list, key=lambda s: s.get_quantity())
+    highest = max(shoes_list, key=lambda shoe: shoe.get_quantity())
     print("\n---- Highest Stock Item ----\n")
     print(f"ON SALE:    {highest.product}")
     print(f"Code:       {highest.code}")
     print(f"Quantity:   {highest.get_quantity()} units\n")
 
 
-# ==========Main Menu=============
-'''
-Create a menu that executes each function above.
-This menu should be inside the while loop. Be creative!
-'''
+# ======================== Main menu ========================
+MENU = """
+---- Shoe Inventory System ----
+1. View all shoes
+2. Add a new shoe
+3. Restock lowest item
+4. Search by code
+5. Value per item
+6. Highest quantity item
+0. Exit
+"""
+
+# Maps each menu choice to the function that handles it.
+ACTIONS = {
+    "1": view_all,
+    "2": capture_shoes,
+    "3": re_stock,
+    "4": search_shoe,
+    "5": value_per_item,
+    "6": highest_qty,
+}
 
 
 def main_menu():
-    read_shoes_data()  # Load data drom inventory.txt on startup
-
-    menu = """
-    ---- Nike Shoe Inventory System ----
-    1. View all Shoes
-    2. Add a new shoe
-    3. Restock lowest item
-    4. Search by code
-    5. Value per item
-    6. Highest quantity item
-    0. Exit
-    """
+    """Load the data, then loop through the menu until the user exits."""
+    read_shoes_data()
 
     while True:
-        print(menu)
-        choice = input("Select an option: ").strip().lower()
+        print(MENU)
+        choice = input("Select an option: ").strip()
 
-        if choice == "1":
-            view_all()
-        elif choice == "2":
-            capture_shoes()
-        elif choice == "3":
-            re_stock()
-        elif choice == "4":
-            search_shoe()
-        elif choice == "5":
-            value_per_item()
-        elif choice == "6":
-            highest_qty()
-        elif choice == "0":
-            print("Goodbye!")
+        if choice == "0":
+            print("Exiting the program. Goodbye!")
             break
+
+        action = ACTIONS.get(choice)
+        if action:
+            action()
         else:
             print("Invalid option. Please choose from the menu.\n")
 
