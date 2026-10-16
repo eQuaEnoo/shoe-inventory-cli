@@ -38,6 +38,10 @@ python inventory.py
 
 Then choose an option from the menu (0–6) to interact with the inventory.
 
+## Example
+<img width="432" height="655" alt="image" src="https://github.com/user-attachments/assets/5c5a6ac2-4f30-4d64-9099-676cbbecc3f7" />
+
+
 ## Requirements
 
 - Python 3
