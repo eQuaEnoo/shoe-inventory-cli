@@ -28,19 +28,13 @@ with the program state.
 
 ## Usage
 
-Run the script directly:
+Clone the repository and run the script:
 
-\`\`\`bash
-python inventory.py
-\`\`\`
-
-OR
-
-\`\`\`powershell
-git clone [[<repo-url>](https://github.com/eQuaEnoo/shoe-inventory-cli)](https://github.com/eQuaEnoo/shoe-inventory-cli.git)
+```bash
+git clone https://github.com/eQuaEnoo/shoe-inventory-cli.git
 cd shoe-inventory-cli
 python inventory.py
-\`\`\`
+```
 
 Then choose an option from the menu (0–6) to interact with the inventory.
 
